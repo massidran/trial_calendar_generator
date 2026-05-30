@@ -1,9 +1,10 @@
 import sys
+import fpdf
 import tabulate
 import datetime as dt
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
-from utils import load_holidays, sub_days, sub_court_days, open_doc, find_and_replace
+from utils import load_holidays, sub_days, sub_court_days, open_doc, find_and_replace_head, find_and_replace
 
 calendar = []
 
@@ -51,7 +52,17 @@ def generate_calendar():
 
     deadlines = []
 
+    deadlines.append([
+        "Trial",
+        trial_date_str
+    ])
+
     if msc_date is not None:
+        deadlines.append([
+            "Mandatory Settlement Conference",
+            msc_date_str
+        ])
+
         deadlines.append([
             "Settlement/Issue Conference Statement Due",
             sub_days(msc_date, 5)
@@ -73,17 +84,17 @@ def generate_calendar():
     ])
 
     deadlines.append([
-        "LD to Serve Written Discovery Requests (Soft Deadline)",
+        "LD to Serve Written Discovery Requests\n(Soft Deadline)",
         sub_days(trial_date, 100)
     ])
 
     deadlines.append([
-        "LD to Serve Written Discovery Requests (Hard Deadline) via Mail",
+        "LD to Serve Written Discovery Requests\n(Hard Deadline) via Mail",
         sub_days(trial_date, 65)
     ])
 
     deadlines.append([
-        "LD to Serve Written Discovery Requests (Hard Deadline) via Hand Delivery",
+        "LD to Serve Written Discovery Requests\n(Hard Deadline) via Hand Delivery",
         sub_days(trial_date, 60)
     ])
 
@@ -123,7 +134,7 @@ def generate_calendar():
     ])
 
     deadlines.append([
-        "Discovery Cut-off/LD to hear Motion for Summary Judgement",
+        "Discovery Cut-off\nLD to hear Motion for Summary Judgement",
         sub_days(trial_date, 30)
     ])
 
@@ -133,38 +144,37 @@ def generate_calendar():
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear with Documents via Mail",
+        "LD to Serve §1987 Notice to Appear with Documents\nvia Mail",
         sub_days(trial_date, 25)
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear with Documents via Hand Delivery",
+        "LD to Serve §1987 Notice to Appear with Documents\nvia Hand Delivery",
         sub_days(trial_date, 20)
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear without Documents via Mail",
+        "LD to Serve §1987 Notice to Appear without Documents\nvia Mail",
         sub_days(trial_date, 15)
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear without Documents via Hand Delivery",
+        "LD to Serve §1987 Notice to Appear without Documents\nvia Hand Delivery",
         sub_days(trial_date, 10)
     ])
 
     deadlines.append([
-        "LD to Conduct Expert Discovery/LD to Hear Discovery Motions",
+        "LD to Conduct Expert Discoveryn\nLD to Hear Discovery Motions",
         sub_days(trial_date, 15)
     ])
 
     deadlines.append([
-        "LD to Hear Motions Re Experts/LD to Serve C.C.P.§998",
+        "LD to Hear Motions Re Experts\nLD to Serve C.C.P.§998",
         sub_days(trial_date, 10)
     ])
     
     deadlines.append([
-        """LDFS Trial Documents: Motions in Limine/Jury Instructions,"""
-        """\nLists of Exhibits and Witnesses and Voir Dire""",
+        "LDFS Trial Documents: Motions in Limine\nJury Instructions, Lists of Exhibits\nand Witnesses and Voir Dire",
         "TBD"
     ])
 
@@ -190,30 +200,43 @@ def clear_fields():
 
 # Export output to TXT file
 def export_output_txt(file_path, content):
-    content = output_box.get("1.0", tk.END).strip()
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
     return True
 
+# Export output to PDF file
+def export_output_pdf(file_path, content):
+    pdf = fpdf.FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(True, margin=15)
+    pdf.set_font("Courier", size=12)
+    for line in content.splitlines():
+        pdf.multi_cell(0, 6, line)
+    pdf.output(file_path)
+    return True
+
 # Export output to DOCX file based on template
-def export_output_docx(file_path):
+def export_output_docx(file_path, msc):
     doc = open_doc()
-    msc = 1 if calendar[0][0].startswith("Settlement/Issue Conference Statement Due") else 0
-    for i in range(0, len(calendar) - msc):
-        find_and_replace(doc, "Date" + str(i - msc + 1), calendar[i][1])
+    if case_number_entry.get().strip():
+        find_and_replace(doc, "{CASE_NUMBER}", case_number_entry.get().strip())
+    find_and_replace_head(doc, "{TRIAL}", calendar[0][1])
+    find_and_replace(doc, "{TRIAL_DATE}", calendar[0][1])
+    if msc:
+        find_and_replace(doc, "{MSC_DATE}", calendar[1][1])
+    for i in range(0 if msc else 1, len(calendar) - (2 if msc else 0)):
+        find_and_replace(doc, "{DATE_" + str(i) + "}", calendar[i + 2 if msc else i][1])
     doc.save(file_path)
     return True
 
 # Save As dialog for TXT or DOCX
 def save_as_output():
-    case_number = case_number_entry.get().strip()
-    trial_date = trial_date_entry.get().strip().replace('/', '-')
-    content = output_box.get("1.0", tk.END).strip()
-    
-    if not content:
+    if not calendar:
         messagebox.showwarning("No Output", "There is no output to export.")
         return
 
+    case_number = case_number_entry.get().strip()
+    trial_date = trial_date_entry.get().strip().replace('/', '-')
     default_name = "Trial Calendar - " + trial_date
     if case_number:
         default_name = case_number + ' ' + default_name
@@ -222,20 +245,26 @@ def save_as_output():
         initialdir=sys.path[0],
         initialfile=default_name,
         defaultextension=".docx",
-        filetypes=[("Word Files", "*.docx"), ("Text Files", "*.txt")],
+        filetypes=[("Word Files", "*.docx"), ("PDF Files", "*.pdf"), ("Text Files", "*.txt")],
         title="Save Calendar Output"
     )
-
     if not file_path:
         messagebox.showinfo("Export Canceled", "Export operation was canceled.")
         return
 
+    content = tabulate.tabulate(calendar, headers=["Event", "Date"], tablefmt="grid")
+    msc = True if len(calendar) > 23 else False
     lower_path = file_path.lower()
     if lower_path.endswith('.docx'):
-        success = export_output_docx(file_path)
+        success = export_output_docx(file_path, msc)
     else:
-        success = export_output_txt(file_path, content)
-
+        if lower_path.endswith('.pdf'):
+            success = export_output_pdf(file_path, content)
+        elif lower_path.endswith('.txt'):
+            success = export_output_txt(file_path, content)
+        calendar.pop(0)
+        if msc_date_entry.get().strip():
+            calendar.pop(0)
     if success:
         messagebox.showinfo("Export Successful", "Output exported successfully.")
     else:
@@ -256,7 +285,6 @@ case_number_label = tk.Label(
     text="Case Number (OPTIONAL):"
 )
 case_number_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
-
 case_number_entry = tk.Entry(input_frame, width=20)
 case_number_entry.grid(row=0, column=1, padx=5, pady=5)
 
@@ -266,7 +294,6 @@ trial_date_label = tk.Label(
     text="Trial Date (MM/DD/YY):"
 )
 trial_date_label.grid(row=1, column=0, padx=5, pady=5, sticky="e")
-
 trial_date_entry = tk.Entry(input_frame, width=20)
 trial_date_entry.grid(row=1, column=1, padx=5, pady=5)
 
@@ -276,7 +303,6 @@ msc_date_label = tk.Label(
     text="MSC Date (OPTIONAL):"
 )
 msc_date_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
-
 msc_date_entry = tk.Entry(input_frame, width=20)
 msc_date_entry.grid(row=2, column=1, padx=5, pady=5)
 
@@ -284,6 +310,7 @@ msc_date_entry.grid(row=2, column=1, padx=5, pady=5)
 button_frame = tk.Frame(root)
 button_frame.pack(pady=10)
 
+# Generate Button
 generate_button = tk.Button(
     button_frame,
     text="Generate",
@@ -292,6 +319,7 @@ generate_button = tk.Button(
 )
 generate_button.grid(row=0, column=0, padx=10)
 
+# Clear Button
 clear_button = tk.Button(
     button_frame,
     text="Clear",
@@ -300,6 +328,7 @@ clear_button = tk.Button(
 )
 clear_button.grid(row=0, column=1, padx=10)
 
+# Save As Button
 save_as_button = tk.Button(
     button_frame,
     text="Save As...",
@@ -308,7 +337,7 @@ save_as_button = tk.Button(
 )
 save_as_button.grid(row=0, column=2, padx=10)
 
-# Output Box
+# Output Display
 output_box = scrolledtext.ScrolledText(
     root,
     wrap=tk.WORD,

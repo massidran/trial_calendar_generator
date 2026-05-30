@@ -43,6 +43,17 @@ def open_doc():
     doc_path = resource_path("trial_calendar_template.docx")
     return docx.Document(doc_path)
 
+def find_and_replace_head(doc: docx.Document, placeholder: str, replacement: str):
+    for p in doc.paragraphs:
+        if placeholder in p.text:
+            for run in p.runs:
+                if placeholder in run.text:
+                    run.text = run.text.replace(placeholder, replacement)
+                    run.font.name = "Times New Roman"
+                    run.font.size = docx.shared.Pt(24)
+                    run.bold = True
+                    return
+
 def find_and_replace(doc: docx.Document, placeholder: str, replacement: str):
     for table in doc.tables:
         for row in table.rows:
