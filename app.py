@@ -54,19 +54,18 @@ def generate_calendar():
 
     deadlines.append([
         "Trial",
-        trial_date_str
+        trial_date
     ])
 
-    if msc_date is not None:
-        deadlines.append([
-            "Mandatory Settlement Conference",
-            msc_date_str
-        ])
+    deadlines.append([
+        "Mandatory Settlement Conference",
+        msc_date if msc_date is not None else "TBD"
+    ])
 
-        deadlines.append([
-            "Settlement/Issue Conference Statement Due",
-            sub_days(msc_date, 5)
-        ])
+    deadlines.append([
+        "Settlement/Issue Conference Statement Due",
+        sub_days(msc_date, 5) if msc_date is not None else "TBD"
+    ])
 
     deadlines.append([
         "Pre-Trial Report Due to Insurance Carrier",
@@ -74,12 +73,12 @@ def generate_calendar():
     ])
 
     deadlines.append([
-        "LDFS Motion for Summary Judgment via Mail",
+        "LDFS Motion for Summary Judgment\nvia Mail",
         sub_days(trial_date, 110)
     ])
 
     deadlines.append([
-        "LDFS Motion for Summary Judgment via Hand Delivery",
+        "LDFS Motion for Summary Judgment\nvia Hand Delivery",
         sub_days(trial_date, 105)
     ])
 
@@ -144,22 +143,22 @@ def generate_calendar():
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear with Documents\nvia Mail",
+        "LD to Serve §1987 Notice to Appear\nwith Documents via Mail",
         sub_days(trial_date, 25)
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear with Documents\nvia Hand Delivery",
+        "LD to Serve §1987 Notice to Appear\nwith Documents via Hand Delivery",
         sub_days(trial_date, 20)
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear without Documents\nvia Mail",
+        "LD to Serve §1987 Notice to Appear\nwithout Documents via Mail",
         sub_days(trial_date, 15)
     ])
 
     deadlines.append([
-        "LD to Serve §1987 Notice to Appear without Documents\nvia Hand Delivery",
+        "LD to Serve §1987 Notice to Appear\nwithout Documents via Hand Delivery",
         sub_days(trial_date, 10)
     ])
 
@@ -179,11 +178,11 @@ def generate_calendar():
     ])
 
     for deadline in deadlines:
-        calendar.append(deadline)
         if type(deadline[1]) is dt.datetime:
             deadline[1] = deadline[1].strftime("%m/%d/%y")
+        calendar.append(deadline)
 
-    table = tabulate.tabulate(deadlines, headers=["Event", "Date"], tablefmt="grid")
+    table = tabulate.tabulate(calendar[2:], headers=["Event", "Date"], tablefmt="grid")
 
     output_box.insert(tk.END, table)
     output_box.config(state=tk.DISABLED)
@@ -191,7 +190,7 @@ def generate_calendar():
 # Clear all fields
 def clear_fields():
     calendar.clear()
-    case_number_entry.delete(0, tk.END)
+    file_number_entry.delete(0, tk.END)
     trial_date_entry.delete(0, tk.END)
     msc_date_entry.delete(0, tk.END)
     output_box.config(state=tk.NORMAL)
@@ -206,40 +205,44 @@ def export_output_txt(file_path, content):
 
 # Export output to PDF file
 def export_output_pdf(file_path, content):
-    pdf = fpdf.FPDF()
+    pdf = fpdf.FPDF(unit='in')
+    pdf.set_left_margin(1)
+    pdf.set_right_margin(1)
+    pdf.set_top_margin(1)
+    pdf.set_auto_page_break(True, margin=1)
     pdf.add_page()
-    pdf.set_auto_page_break(True, margin=15)
     pdf.set_font("Courier", size=12)
+    line_height = 1.15 * pdf.font_size
     for line in content.splitlines():
-        pdf.multi_cell(0, 6, line)
+        pdf.multi_cell(0, line_height, line)
     pdf.output(file_path)
     return True
 
 # Export output to DOCX file based on template
-def export_output_docx(file_path, msc):
+def export_output_docx(file_path):
     doc = open_doc()
-    if case_number_entry.get().strip():
-        find_and_replace(doc, "{CASE_NUMBER}", case_number_entry.get().strip())
+    file_no = file_number_entry.get().strip()
+    if file_no:
+        find_and_replace(doc, "{FILE_NO}", file_no)
     find_and_replace_head(doc, "{TRIAL}", calendar[0][1])
     find_and_replace(doc, "{TRIAL_DATE}", calendar[0][1])
-    if msc:
-        find_and_replace(doc, "{MSC_DATE}", calendar[1][1])
-    for i in range(0 if msc else 1, len(calendar) - (2 if msc else 0)):
-        find_and_replace(doc, "{DATE_" + str(i) + "}", calendar[i + 2 if msc else i][1])
+    find_and_replace(doc, "{MSC_DATE}", calendar[1][1])
+    for i in range(2, len(calendar)):
+        find_and_replace(doc, "{DATE_" + str(i - 2) + "}", calendar[i][1])
     doc.save(file_path)
     return True
 
-# Save As dialog for TXT or DOCX
+# Save As dialog for DOCX, PDF, or TXT export
 def save_as_output():
     if not calendar:
         messagebox.showwarning("No Output", "There is no output to export.")
         return
 
-    case_number = case_number_entry.get().strip()
+    file_number = file_number_entry.get().strip()
     trial_date = trial_date_entry.get().strip().replace('/', '-')
     default_name = "Trial Calendar - " + trial_date
-    if case_number:
-        default_name = case_number + ' ' + default_name
+    if file_number:
+        default_name = file_number + ' ' + default_name
 
     file_path = filedialog.asksaveasfilename(
         initialdir=sys.path[0],
@@ -253,18 +256,14 @@ def save_as_output():
         return
 
     content = tabulate.tabulate(calendar, headers=["Event", "Date"], tablefmt="grid")
-    msc = True if len(calendar) > 23 else False
     lower_path = file_path.lower()
+    success = False
     if lower_path.endswith('.docx'):
-        success = export_output_docx(file_path, msc)
-    else:
-        if lower_path.endswith('.pdf'):
-            success = export_output_pdf(file_path, content)
-        elif lower_path.endswith('.txt'):
-            success = export_output_txt(file_path, content)
-        calendar.pop(0)
-        if msc_date_entry.get().strip():
-            calendar.pop(0)
+        success = export_output_docx(file_path)
+    elif lower_path.endswith('.pdf'):
+        success = export_output_pdf(file_path, content)
+    elif lower_path.endswith('.txt'):
+        success = export_output_txt(file_path, content)
     if success:
         messagebox.showinfo("Export Successful", "Output exported successfully.")
     else:
@@ -273,20 +272,20 @@ def save_as_output():
 # GUI Setup
 root = tk.Tk()
 root.title("Trial Calendar Generator")
-root.geometry("1000x1000")
+root.geometry("500x700")
 
 # Input Frame
 input_frame = tk.Frame(root)
 input_frame.pack(pady=10)
 
-#Case Number
-case_number_label = tk.Label(
+# File Number
+file_number_label = tk.Label(
     input_frame,
-    text="Case Number (OPTIONAL):"
+    text="File Number (OPTIONAL):"
 )
-case_number_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
-case_number_entry = tk.Entry(input_frame, width=20)
-case_number_entry.grid(row=0, column=1, padx=5, pady=5)
+file_number_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
+file_number_entry = tk.Entry(input_frame, width=20)
+file_number_entry.grid(row=0, column=1, padx=5, pady=5)
 
 # Trial Date
 trial_date_label = tk.Label(
