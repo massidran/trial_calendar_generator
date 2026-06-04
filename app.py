@@ -74,12 +74,12 @@ def generate_calendar():
 
     deadlines.append([
         "LDFS Motion for Summary Judgment\nvia Mail",
-        sub_days(trial_date, 110)
+        sub_days(sub_days(trial_date, 30), 86)
     ])
 
     deadlines.append([
         "LDFS Motion for Summary Judgment\nvia Hand Delivery",
-        sub_days(trial_date, 105)
+        sub_days(sub_days(trial_date, 30), 81)
     ])
 
     deadlines.append([
