@@ -4,7 +4,7 @@ import tabulate
 import datetime as dt
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
-from utils import load_holidays, sub_days, sub_court_days, open_doc, find_and_replace_head, find_and_replace
+from utils import load_holidays, sub_days, sub_days_push, sub_court_days, open_doc, find_and_replace_head, find_and_replace
 
 calendar = []
 
@@ -74,12 +74,12 @@ def generate_calendar():
 
     deadlines.append([
         "LDFS Motion for Summary Judgment\nvia Mail",
-        sub_days(sub_days(trial_date, 30), 86)
+        sub_days(sub_days_push(trial_date, 30), 86)
     ])
 
     deadlines.append([
         "LDFS Motion for Summary Judgment\nvia Hand Delivery",
-        sub_days(sub_days(trial_date, 30), 81)
+        sub_days(sub_days_push(trial_date, 30), 81)
     ])
 
     deadlines.append([

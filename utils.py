@@ -31,6 +31,12 @@ def sub_days(date: dt.date, days: int) -> dt.datetime:
         date += dt.timedelta(days=1)
     return date
 
+def sub_days_push(date: dt.date, days: int) -> dt.datetime:
+    date -= dt.timedelta(days=days)
+    while date.weekday() >= 5:
+        date -= dt.timedelta(days=1)
+    return date
+
 def sub_court_days(date: dt.date, days: int) -> dt.datetime:
     count = 0
     while count < days:
