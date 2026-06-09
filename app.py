@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 import utils
+import outlook
 
 deadlines = []
 
@@ -258,6 +259,15 @@ save_as_button = tk.Button(
     command=save_as_output
 )
 save_as_button.grid(row=0, column=2, padx=10)
+
+# Outlook Integration
+outlook_button = tk.Button(
+    button_frame,
+    text="Add to Outlook",
+    width=30,
+    command=lambda: outlook.add_events_to_outlook(deadlines)
+)
+outlook_button.grid(row=1, column=0, columnspan=3, pady=10)
 
 # Output Display
 output_box = ScrolledText(
