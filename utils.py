@@ -6,6 +6,12 @@ import os
 
 COURT_HOLIDAYS = set()
 
+class due_date:
+    def __init__(self, event: str, date: dt.datetime = None):
+        self.event = event
+        self.date = date
+        self.date_str = date.strftime("%m/%d/%y") if date else "TBD"
+
 def resource_path(filename: str) -> str:
     if getattr(sys, "frozen", False):
         base_path = sys._MEIPASS
@@ -44,10 +50,6 @@ def sub_court_days(date: dt.date, days: int) -> dt.datetime:
         if date.weekday() < 5 and not is_court_holiday(date):
             count += 1
     return date
-
-def open_doc():
-    doc_path = resource_path("trial_calendar_template.docx")
-    return docx.Document(doc_path)
 
 def find_and_replace_head(doc: docx.Document, placeholder: str, replacement: str):
     for p in doc.paragraphs:

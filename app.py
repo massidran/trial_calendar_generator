@@ -1,24 +1,27 @@
 import sys
 import fpdf
+import docx
 import tabulate
 import datetime as dt
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
-from utils import load_holidays, sub_days, sub_days_push, sub_court_days, open_doc, find_and_replace_head, find_and_replace
+from tkinter import filedialog, messagebox
+from tkinter.scrolledtext import ScrolledText
+import utils
 
-calendar = []
+deadlines = []
 
 # Load holidays into utils
 try:
-    load_holidays()
+    utils.load_holidays()
 except FileNotFoundError:
     messagebox.showwarning(
             "Missing File",
             "holidays.csv was not found."
         )
 
-# Generate calendar
-def generate_calendar():
+# Generate deadlines
+def generate_deadlines():
+    deadlines.clear()
     output_box.config(state=tk.NORMAL)
     output_box.delete("1.0", tk.END)
 
@@ -50,146 +53,65 @@ def generate_calendar():
             )
             return
 
-    deadlines = []
+    deadlines.append(utils.due_date("Trial", trial_date))
 
-    deadlines.append([
-        "Trial",
-        trial_date
-    ])
+    deadlines.append(utils.due_date("Mandatory Settlement Conference", msc_date) if msc_date is not None else utils.due_date("Mandatory Settlement Conference"))
 
-    deadlines.append([
-        "Mandatory Settlement Conference",
-        msc_date if msc_date is not None else "TBD"
-    ])
+    deadlines.append(utils.due_date("Settlement/Issue Conference Statement Due", utils.sub_days(msc_date, 5)) if msc_date is not None else utils.due_date("Settlement/Issue Conference Statement Due"))
 
-    deadlines.append([
-        "Settlement/Issue Conference Statement Due",
-        sub_days(msc_date, 5) if msc_date is not None else "TBD"
-    ])
+    deadlines.append(utils.due_date("Pre-Trial Report Due to Insurance Carrier", utils.sub_days(trial_date, 45)))
 
-    deadlines.append([
-        "Pre-Trial Report Due to Insurance Carrier",
-        sub_days(trial_date, 45)
-    ])
+    deadlines.append(utils.due_date("LDFS Motion for Summary Judgment\nvia Mail", utils.sub_days(utils.sub_days_push(trial_date, 30), 86)))
 
-    deadlines.append([
-        "LDFS Motion for Summary Judgment\nvia Mail",
-        sub_days(sub_days_push(trial_date, 30), 86)
-    ])
+    deadlines.append(utils.due_date("LDFS Motion for Summary Judgment\nvia Hand Delivery", utils.sub_days(utils.sub_days_push(trial_date, 30), 81)))
 
-    deadlines.append([
-        "LDFS Motion for Summary Judgment\nvia Hand Delivery",
-        sub_days(sub_days_push(trial_date, 30), 81)
-    ])
+    deadlines.append(utils.due_date("LD to Serve Written Discovery Requests\n(Soft Deadline)", utils.sub_days(trial_date, 100)))
 
-    deadlines.append([
-        "LD to Serve Written Discovery Requests\n(Soft Deadline)",
-        sub_days(trial_date, 100)
-    ])
+    deadlines.append(utils.due_date("LD to Serve Written Discovery Requests\n(Hard Deadline) via Mail", utils.sub_days(trial_date, 65)))
 
-    deadlines.append([
-        "LD to Serve Written Discovery Requests\n(Hard Deadline) via Mail",
-        sub_days(trial_date, 65)
-    ])
+    deadlines.append(utils.due_date("LD to Serve Written Discovery Requests\n(Hard Deadline) via Hand Delivery", utils.sub_days(trial_date, 60)))
 
-    deadlines.append([
-        "LD to Serve Written Discovery Requests\n(Hard Deadline) via Hand Delivery",
-        sub_days(trial_date, 60)
-    ])
+    deadlines.append(utils.due_date("LD to Request Expert Disclosure", utils.sub_days(trial_date, 70)))
 
-    deadlines.append([
-        "LD to Request Expert Disclosure",
-        sub_days(trial_date, 70)
-    ])
+    deadlines.append(utils.due_date("LD to Exchange Expert Witness", utils.sub_days(trial_date, 50)))
 
-    deadlines.append([
-        "LD to Exchange Expert Witness",
-        sub_days(trial_date, 50)
-    ])
+    deadlines.append(utils.due_date("LDFS Discovery Motions via Mail", utils.sub_days(utils.sub_court_days(utils.sub_days(trial_date, 15), 16), 5)))
 
-    deadlines.append([
-        "LDFS Discovery Motions via Mail",
-        sub_days(sub_court_days(sub_days(trial_date, 15), 16), 5)
-    ])
+    deadlines.append(utils.due_date("LDFS Discovery Motions via Hand Delivery", utils.sub_court_days(utils.sub_days(trial_date, 15), 16)))
 
-    deadlines.append([
-        "LDFS Discovery Motions via Hand Delivery",
-        sub_court_days(sub_days(trial_date, 15), 16)
-    ])
+    deadlines.append(utils.due_date("LDFS Motions Re Experts via Mail", utils.sub_days(utils.sub_court_days(utils.sub_days(trial_date, 10), 16), 5)))
 
-    deadlines.append([
-        "LDFS Motions Re Experts via Mail",
-        sub_days(sub_court_days(sub_days(trial_date, 10), 16), 5)
-    ])
-
-    deadlines.append([
-        "LDFS Motions Re Experts via Hand Delivery",
-        sub_court_days(sub_days(trial_date, 10), 16)
-    ])
+    deadlines.append(utils.due_date("LDFS Motions Re Experts via Hand Delivery", utils.sub_court_days(utils.sub_days(trial_date, 10), 16)))
     
-    deadlines.append([
-        "LD to Post Jury Fees",
-        "TBD"
-    ])
+    deadlines.append(utils.due_date("LD to Post Jury Fees"))
 
-    deadlines.append([
-        "Discovery Cut-off\nLD to hear Motion for Summary Judgement",
-        sub_days(trial_date, 30)
-    ])
+    deadlines.append(utils.due_date("Discovery Cut-off\nLD to hear Motion for Summary Judgement", utils.sub_days(trial_date, 30)))
 
-    deadlines.append([
-        "LD to Issue Subpenas Duces Tecum",
-        sub_days(trial_date, 20)
-    ])
+    deadlines.append(utils.due_date("LD to Issue Subpenas Duces Tecum", utils.sub_days(trial_date, 20)))
 
-    deadlines.append([
-        "LD to Serve §1987 Notice to Appear\nwith Documents via Mail",
-        sub_days(trial_date, 25)
-    ])
+    deadlines.append(utils.due_date("LD to Serve §1987 Notice to Appear\nwith Documents via Mail", utils.sub_days(trial_date, 25)))
 
-    deadlines.append([
-        "LD to Serve §1987 Notice to Appear\nwith Documents via Hand Delivery",
-        sub_days(trial_date, 20)
-    ])
+    deadlines.append(utils.due_date("LD to Serve §1987 Notice to Appear\nwith Documents via Hand Delivery", utils.sub_days(trial_date, 20)))
 
-    deadlines.append([
-        "LD to Serve §1987 Notice to Appear\nwithout Documents via Mail",
-        sub_days(trial_date, 15)
-    ])
+    deadlines.append(utils.due_date("LD to Serve §1987 Notice to Appear\nwithout Documents via Mail", utils.sub_days(trial_date, 15)))
 
-    deadlines.append([
-        "LD to Serve §1987 Notice to Appear\nwithout Documents via Hand Delivery",
-        sub_days(trial_date, 10)
-    ])
+    deadlines.append(utils.due_date("LD to Serve §1987 Notice to Appear\nwithout Documents via Hand Delivery", utils.sub_days(trial_date, 10)))
 
-    deadlines.append([
-        "LD to Conduct Expert Discoveryn\nLD to Hear Discovery Motions",
-        sub_days(trial_date, 15)
-    ])
+    deadlines.append(utils.due_date("LD to Conduct Expert Discoveryn\nLD to Hear Discovery Motions", utils.sub_days(trial_date, 15)))
 
-    deadlines.append([
-        "LD to Hear Motions Re Experts\nLD to Serve C.C.P.§998",
-        sub_days(trial_date, 10)
-    ])
+    deadlines.append(utils.due_date("LD to Hear Motions Re Experts\nLD to Serve C.C.P.§998", utils.sub_days(trial_date, 10)))
     
-    deadlines.append([
-        "LDFS Trial Documents: Motions in Limine\nJury Instructions, Lists of Exhibits\nand Witnesses and Voir Dire",
-        "TBD"
-    ])
+    deadlines.append(utils.due_date("LDFS Trial Documents: Motions in Limine\nJury Instructions, Lists of Exhibits\nand Witnesses and Voir Dire"))
 
-    for deadline in deadlines:
-        if type(deadline[1]) is dt.datetime:
-            deadline[1] = deadline[1].strftime("%m/%d/%y")
-        calendar.append(deadline)
-
-    table = tabulate.tabulate(calendar[2:], headers=["Event", "Date"], tablefmt="grid")
+    rows = [[d.event, d.date_str] for d in deadlines]
+    table = tabulate.tabulate(rows, headers=["Event", "Date"], tablefmt="grid")
 
     output_box.insert(tk.END, table)
     output_box.config(state=tk.DISABLED)
 
 # Clear all fields
 def clear_fields():
-    calendar.clear()
+    deadlines.clear()
     file_number_entry.delete(0, tk.END)
     trial_date_entry.delete(0, tk.END)
     msc_date_entry.delete(0, tk.END)
@@ -220,21 +142,21 @@ def export_output_pdf(file_path, content):
 
 # Export output to DOCX file based on template
 def export_output_docx(file_path):
-    doc = open_doc()
+    doc = docx.Document(utils.resource_path("trial_calendar_template.docx"))
     file_no = file_number_entry.get().strip()
     if file_no:
-        find_and_replace(doc, "{FILE_NO}", file_no)
-    find_and_replace_head(doc, "{TRIAL}", calendar[0][1])
-    find_and_replace(doc, "{TRIAL_DATE}", calendar[0][1])
-    find_and_replace(doc, "{MSC_DATE}", calendar[1][1])
-    for i in range(2, len(calendar)):
-        find_and_replace(doc, "{DATE_" + str(i - 2) + "}", calendar[i][1])
+        utils.find_and_replace(doc, "{FILE_NO}", file_no)
+    utils.find_and_replace_head(doc, "{TRIAL}", deadlines[0].date_str)
+    utils.find_and_replace(doc, "{TRIAL_DATE}", deadlines[0].date_str)
+    utils.find_and_replace(doc, "{MSC_DATE}", deadlines[1].date_str)
+    for i in range(2, len(deadlines)):
+        utils.find_and_replace(doc, "{DATE_" + str(i - 2) + "}", deadlines[i].date_str)
     doc.save(file_path)
     return True
 
 # Save As dialog for DOCX, PDF, or TXT export
 def save_as_output():
-    if not calendar:
+    if not deadlines:
         messagebox.showwarning("No Output", "There is no output to export.")
         return
 
@@ -249,13 +171,14 @@ def save_as_output():
         initialfile=default_name,
         defaultextension=".docx",
         filetypes=[("Word Files", "*.docx"), ("PDF Files", "*.pdf"), ("Text Files", "*.txt")],
-        title="Save Calendar Output"
+        title="Save Trial Calendar Output"
     )
     if not file_path:
         messagebox.showinfo("Export Canceled", "Export operation was canceled.")
         return
 
-    content = tabulate.tabulate(calendar, headers=["Event", "Date"], tablefmt="grid")
+    rows = [[d.event, d.date_str] for d in deadlines]
+    content = tabulate.tabulate(rows, headers=["Event", "Date"], tablefmt="grid")
     lower_path = file_path.lower()
     success = False
     if lower_path.endswith('.docx'):
@@ -314,7 +237,7 @@ generate_button = tk.Button(
     button_frame,
     text="Generate",
     width=10,
-    command=generate_calendar
+    command=generate_deadlines
 )
 generate_button.grid(row=0, column=0, padx=10)
 
@@ -337,7 +260,7 @@ save_as_button = tk.Button(
 save_as_button.grid(row=0, column=2, padx=10)
 
 # Output Display
-output_box = scrolledtext.ScrolledText(
+output_box = ScrolledText(
     root,
     wrap=tk.WORD,
     width=120,
