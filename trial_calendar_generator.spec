@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='trial_calendar_generator_v1.2',
+    name='trial_calendar_generator_v2.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
